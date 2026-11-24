@@ -1,0 +1,71 @@
+# EXPERIMENT (2026-11-14), "paper configuration" of THEIR design: vector scratchpad
+# 16 KB per bank, 128 KB total (repo build: 64 KB per bank, 512 KB).
+# Applies to a copy of their repository at external_2026/iisc_paper_cfg/ (paths below
+# are relative to that folder). VMEM_ADDR_WIDTH / DMEM_ADDR_WIDTH 14 -> 12 on 6 lines;
+# cpu_inf's DMEM_END decode constant is deliberately left unchanged.
+# Not in this patch (IP containers are binary): DMEM_0..7 Write_Depth_A 16384 -> 4096 and
+# their init files, set by scripts/v7_impl_iisc_papercfg.tcl (stage ipprep).
+# Result: RESULTS.md "Paper-configuration experiment (128 KB scratchpad)".
+
+--- a/Source code/rtl/vector_unit/cpu_inf.vhd
++++ b/Source code/rtl/vector_unit/cpu_inf.vhd
+@@ -46,7 +46,7 @@
+ 
+ 
+ entity cpu_inf is
+-    generic(DMEM_ADDR_WIDTH : integer :=14);
++    generic(DMEM_ADDR_WIDTH : integer :=12);
+     Port ( clk          : in STD_LOGIC;
+            reset        : in STD_LOGIC;
+            ADDR_IN      : in STD_LOGIC_VECTOR (31 downto 0);
+--- a/Source code/rtl/vector_unit/exe_unit.vhd
++++ b/Source code/rtl/vector_unit/exe_unit.vhd
+@@ -20,7 +20,7 @@
+ 
+   
+ entity exe_unit is
+-	generic(VMEM_ADDR_WIDTH : integer :=14);
++	generic(VMEM_ADDR_WIDTH : integer :=12);
+     Port  ( 
+ 	    clk 		: in  STD_LOGIC;
+         reset 		: in  STD_LOGIC;	-- Asynchronous RESET
+--- a/Source code/rtl/vector_unit/mypack.vhd
++++ b/Source code/rtl/vector_unit/mypack.vhd
+@@ -22,7 +22,7 @@
+ --use UNISIM.VComponents.all;
+ package mypack is
+ 
+-  constant VMEM_ADDR_WIDTH : INTEGER := 14;-- Change this when DMEM ADDR WIDTH Changes ... over and above generic map
++  constant VMEM_ADDR_WIDTH : INTEGER := 12;-- Change this when DMEM ADDR WIDTH Changes ... over and above generic map
+ type i_rec is record
+ 	start   : std_logic;                          -- Begin Vector Operations
+ 	vs1     : std_logic_vector(4 downto 0);       -- Vector Source Register 1
+@@ -101,7 +101,7 @@
+ ---  COmponent Definitions ---------------------
+ --------------------------------------------------------------------
+ component cpu_inf is
+-  generic(DMEM_ADDR_WIDTH : integer :=14);
++  generic(DMEM_ADDR_WIDTH : integer :=12);
+   Port ( 
+          clk          : in STD_LOGIC;
+          reset        : in STD_LOGIC;
+--- a/Source code/rtl/vector_unit/wrapper.vhd
++++ b/Source code/rtl/vector_unit/wrapper.vhd
+@@ -63,7 +63,7 @@
+ 
+ architecture Behavioral of wrapper is
+ component exe_unit is
+-	generic(VMEM_ADDR_WIDTH : integer :=14);
++	generic(VMEM_ADDR_WIDTH : integer :=12);
+     Port  ( 
+ 	    clk 		: in  STD_LOGIC;
+         reset 		: in  STD_LOGIC;	-- Asynchronous RESET
+@@ -89,7 +89,7 @@
+ 
+ begin
+ 
+-VECTOR_EXE_UNIT_PIPE: exe_unit generic map(VMEM_ADDR_WIDTH=>14)
++VECTOR_EXE_UNIT_PIPE: exe_unit generic map(VMEM_ADDR_WIDTH=>12)
+ 	port map(
+ 	clk 					=> clk 				,		
+ 	reset 		    		=> reset 			,	

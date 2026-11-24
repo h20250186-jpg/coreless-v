@@ -1,0 +1,113 @@
+﻿CNN images run: 100; hardware digit == label: 87; hardware digit == Python argmax: 86; Y and Y2 bit-exact: 100
+  Python (reference model, exact Q8.24 arithmetic) argmax == label: 99
+  FC elements 0..7 in v20 == reference: 100; whole FC vector == "elements 8,9 = bias3 only" model: 100; hardware digit == arg-max of that model: 100
+  labels 8 or 9 among the images run: 13
+misclassified (image, label, hardware digit): [(7, 9, 4), (9, 9, 7), (12, 9, 7), (16, 9, 7), (20, 9, 7), (58, 9, 7), (61, 8, 0), (62, 9, 5), (73, 9, 7), (78, 9, 0), (84, 8, 0), (92, 9, 4), (99, 9, 7)]
+  conv2d entry -> return: [56052]
+  layer2 entry -> return: [175674]
+  layer3 entry -> return: [9883]
+  conv2d entry -> layer3 return: [241689]
+  reset -> conv2d entry: [16385]
+  reset -> layer3 return: [258074]
+| Image | Label | Hardware digit (a0 at layer3 return) | Python argmax (reference) | Arg-max of "e8,e9 = bias" model | Y, Y2 bit-exact | FC vector == model |
+|---|---|---|---|---|---|---|
+| 0 | 7 | 7 | 7 | 7 | yes | yes |
+| 1 | 2 | 2 | 2 | 2 | yes | yes |
+| 2 | 1 | 1 | 1 | 1 | yes | yes |
+| 3 | 0 | 0 | 0 | 0 | yes | yes |
+| 4 | 4 | 4 | 4 | 4 | yes | yes |
+| 5 | 1 | 1 | 1 | 1 | yes | yes |
+| 6 | 4 | 4 | 4 | 4 | yes | yes |
+| 7 | 9 | 4 | 9 | 4 | yes | yes |
+| 8 | 5 | 5 | 5 | 5 | yes | yes |
+| 9 | 9 | 7 | 9 | 7 | yes | yes |
+| 10 | 0 | 0 | 0 | 0 | yes | yes |
+| 11 | 6 | 6 | 6 | 6 | yes | yes |
+| 12 | 9 | 7 | 9 | 7 | yes | yes |
+| 13 | 0 | 0 | 0 | 0 | yes | yes |
+| 14 | 1 | 1 | 1 | 1 | yes | yes |
+| 15 | 5 | 5 | 5 | 5 | yes | yes |
+| 16 | 9 | 7 | 9 | 7 | yes | yes |
+| 17 | 7 | 7 | 7 | 7 | yes | yes |
+| 18 | 5 | 5 | 8 | 5 | yes | yes |
+| 19 | 4 | 4 | 4 | 4 | yes | yes |
+| 20 | 9 | 7 | 9 | 7 | yes | yes |
+| 21 | 6 | 6 | 6 | 6 | yes | yes |
+| 22 | 6 | 6 | 6 | 6 | yes | yes |
+| 23 | 5 | 5 | 5 | 5 | yes | yes |
+| 24 | 4 | 4 | 4 | 4 | yes | yes |
+| 25 | 0 | 0 | 0 | 0 | yes | yes |
+| 26 | 7 | 7 | 7 | 7 | yes | yes |
+| 27 | 4 | 4 | 4 | 4 | yes | yes |
+| 28 | 0 | 0 | 0 | 0 | yes | yes |
+| 29 | 1 | 1 | 1 | 1 | yes | yes |
+| 30 | 3 | 3 | 3 | 3 | yes | yes |
+| 31 | 1 | 1 | 1 | 1 | yes | yes |
+| 32 | 3 | 3 | 3 | 3 | yes | yes |
+| 33 | 4 | 4 | 4 | 4 | yes | yes |
+| 34 | 7 | 7 | 7 | 7 | yes | yes |
+| 35 | 2 | 2 | 2 | 2 | yes | yes |
+| 36 | 7 | 7 | 7 | 7 | yes | yes |
+| 37 | 1 | 1 | 1 | 1 | yes | yes |
+| 38 | 2 | 2 | 2 | 2 | yes | yes |
+| 39 | 1 | 1 | 1 | 1 | yes | yes |
+| 40 | 1 | 1 | 1 | 1 | yes | yes |
+| 41 | 7 | 7 | 7 | 7 | yes | yes |
+| 42 | 4 | 4 | 4 | 4 | yes | yes |
+| 43 | 2 | 2 | 2 | 2 | yes | yes |
+| 44 | 3 | 3 | 3 | 3 | yes | yes |
+| 45 | 5 | 5 | 5 | 5 | yes | yes |
+| 46 | 1 | 1 | 1 | 1 | yes | yes |
+| 47 | 2 | 2 | 2 | 2 | yes | yes |
+| 48 | 4 | 4 | 4 | 4 | yes | yes |
+| 49 | 4 | 4 | 4 | 4 | yes | yes |
+| 50 | 6 | 6 | 6 | 6 | yes | yes |
+| 51 | 3 | 3 | 3 | 3 | yes | yes |
+| 52 | 5 | 5 | 5 | 5 | yes | yes |
+| 53 | 5 | 5 | 5 | 5 | yes | yes |
+| 54 | 6 | 6 | 6 | 6 | yes | yes |
+| 55 | 0 | 0 | 0 | 0 | yes | yes |
+| 56 | 4 | 4 | 4 | 4 | yes | yes |
+| 57 | 1 | 1 | 1 | 1 | yes | yes |
+| 58 | 9 | 7 | 9 | 7 | yes | yes |
+| 59 | 5 | 5 | 5 | 5 | yes | yes |
+| 60 | 7 | 7 | 7 | 7 | yes | yes |
+| 61 | 8 | 0 | 8 | 0 | yes | yes |
+| 62 | 9 | 5 | 9 | 5 | yes | yes |
+| 63 | 3 | 3 | 3 | 3 | yes | yes |
+| 64 | 7 | 7 | 7 | 7 | yes | yes |
+| 65 | 4 | 4 | 4 | 4 | yes | yes |
+| 66 | 6 | 6 | 6 | 6 | yes | yes |
+| 67 | 4 | 4 | 4 | 4 | yes | yes |
+| 68 | 3 | 3 | 3 | 3 | yes | yes |
+| 69 | 0 | 0 | 0 | 0 | yes | yes |
+| 70 | 7 | 7 | 7 | 7 | yes | yes |
+| 71 | 0 | 0 | 0 | 0 | yes | yes |
+| 72 | 2 | 2 | 2 | 2 | yes | yes |
+| 73 | 9 | 7 | 9 | 7 | yes | yes |
+| 74 | 1 | 1 | 1 | 1 | yes | yes |
+| 75 | 7 | 7 | 7 | 7 | yes | yes |
+| 76 | 3 | 3 | 3 | 3 | yes | yes |
+| 77 | 2 | 2 | 2 | 2 | yes | yes |
+| 78 | 9 | 0 | 9 | 0 | yes | yes |
+| 79 | 7 | 7 | 7 | 7 | yes | yes |
+| 80 | 7 | 7 | 7 | 7 | yes | yes |
+| 81 | 6 | 6 | 6 | 6 | yes | yes |
+| 82 | 2 | 2 | 2 | 2 | yes | yes |
+| 83 | 7 | 7 | 7 | 7 | yes | yes |
+| 84 | 8 | 0 | 8 | 0 | yes | yes |
+| 85 | 4 | 4 | 4 | 4 | yes | yes |
+| 86 | 7 | 7 | 7 | 7 | yes | yes |
+| 87 | 3 | 3 | 3 | 3 | yes | yes |
+| 88 | 6 | 6 | 6 | 6 | yes | yes |
+| 89 | 1 | 1 | 1 | 1 | yes | yes |
+| 90 | 3 | 3 | 3 | 3 | yes | yes |
+| 91 | 6 | 6 | 6 | 6 | yes | yes |
+| 92 | 9 | 4 | 9 | 4 | yes | yes |
+| 93 | 3 | 3 | 3 | 3 | yes | yes |
+| 94 | 1 | 1 | 1 | 1 | yes | yes |
+| 95 | 4 | 4 | 4 | 4 | yes | yes |
+| 96 | 1 | 1 | 1 | 1 | yes | yes |
+| 97 | 7 | 7 | 7 | 7 | yes | yes |
+| 98 | 6 | 6 | 6 | 6 | yes | yes |
+| 99 | 9 | 7 | 9 | 7 | yes | yes |

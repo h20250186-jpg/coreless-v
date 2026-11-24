@@ -1,0 +1,27 @@
+﻿check vl=8  conv8_3 : 3403 (recorded 3,403)
+check vl=8  64x64   : 353739 (recorded 353,739)
+check vl=16 conv8_3 : 2599 (recorded 2,599)
+check vl=16 64x64   : 269159 (recorded 269,159)
+check vl=16 MNIST ReLU: 49427 (recorded 49,427)
+check vl=8  MNIST ReLU: 66339 (recorded 66,339)
+| Workload | P | taps | OC | vl=8 cycles | vl=8 words | vl=8 fit | vl=16 cycles | vl=16 words | vl=16 fit |
+|---|---|---|---|---|---|---|---|---|---|
+| CONV2D 5x5 8x8, 1 in-ch, 32 filters (as conv32_5) | 16 | 25 | 32 | 9,019 | 1,824 | fits | 7,099 | 2,336 | fits |
+| CONV2D 5x5 16x16, 1 in-ch, 32 filters (as conv32_5) | 144 | 25 | 32 | 77,627 | 7,456 | fits | 60,859 | 9,504 | fits |
+| CONV2D 5x5 32x32, 1 in-ch, 32 filters (as conv32_5) | 784 | 25 | 32 | 420,667 | 34,080 | fits | 329,659 | 42,272 | fits |
+| CONV2D 5x5 64x64, 1 in-ch, 32 filters (as conv32_5) | 3,600 | 25 | 32 | 1,930,043 | 148,768 | DOES NOT FIT | 1,512,379 | 181,536 | DOES NOT FIT |
+| CONV2D 5x5 8x8, 1 in-ch, 16 filters | 16 | 25 | 16 | 4,519 | 1,168 | fits | 3,559 | 1,680 | fits |
+| CONV2D 5x5 16x16, 1 in-ch, 16 filters | 144 | 25 | 16 | 38,823 | 4,752 | fits | 30,439 | 6,800 | fits |
+| CONV2D 5x5 32x32, 1 in-ch, 16 filters | 784 | 25 | 16 | 210,343 | 21,136 | fits | 164,839 | 29,328 | fits |
+| CONV2D 5x5 64x64, 1 in-ch, 16 filters | 3,600 | 25 | 16 | 965,031 | 90,768 | fits | 756,199 | 123,536 | fits |
+| MATMUL 8x8 as 1x1 conv (P=8, taps=8, OC=8) | 8 | 8 | 8 | 406 | 640 | fits | 639 | 1,280 | fits |
+| MATMUL 16x16 as 1x1 conv (P=16, taps=16, OC=16) | 16 | 16 | 16 | 3,007 | 2,560 | fits | 2,379 | 4,608 | fits |
+| MATMUL 32x32 as 1x1 conv (P=32, taps=32, OC=32) | 32 | 32 | 32 | 22,047 | 10,240 | fits | 16,907 | 18,432 | fits |
+| MATMUL 64x64 as 1x1 conv (P=64, taps=64, OC=64) | 64 | 64 | 64 | 173,635 | 40,960 | fits | 139,251 | 73,728 | fits |
+| MLP layer 1: 784 -> 32, bias, ReLU | 1 | 784 | 32 | 28,727 | 31,392 | fits | 22,779 | 37,664 | fits |
+| MLP layer 2: 32 -> 16, bias, ReLU | 1 | 32 | 16 | 625 | 784 | fits | 499 | 1,040 | fits |
+| MLP layer 3: 16 -> 10 (OC padded), bias | 1 | 16 | 10 | 339 | 400 | fits | 279 | 528 | fits |
+| cnn_demo layer 1: 28x28, 3x3, 16 filters, bias, ReLU (26x26 conv) | 676 | 9 | 16 | 67,691 | 17,232 | fits | 49,427 | 23,504 | fits |
+| cnn_demo layer 2: 13x13x16, 3x3x16 = 144 taps, 32 filters, bias, ReLU (11x11 conv) | 121 | 144 | 32 | 361,935 | 30,112 | fits | 273,705 | 51,744 | fits |
+| cnn_demo layer 2, only the 10x10 conv outputs the pooling uses | 100 | 144 | 32 | 299,523 | 29,440 | fits | 226,539 | 51,072 | fits |
+| cnn_demo layer 3: FC 800 -> 10 (OC padded), bias, ReLU | 1 | 800 | 10 | 14,653 | 19,216 | fits | 11,592 | 25,616 | fits |

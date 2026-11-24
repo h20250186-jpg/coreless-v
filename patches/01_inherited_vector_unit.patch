@@ -1,0 +1,520 @@
+# ATEE-Lite changes to files of the I2SRV32-V vector unit (Apache-2.0, see
+# third_party/I2SRV32-V/). Base: github.com/RClabiisc/I2SRV32-V-v1, commit
+# a0b43781b03d8b9d5e4e217675e229a57da3bc62, folder "Source code/rtl/" copied to rtl/.
+# Applied by tools/setup_upstream.py. Every ATEE-Lite result was measured with these files.
+#
+# count_gen.vhd       done_gen ">=" -> ">" so vl=N runs N elements (the off-by-one fix,
+#                     2026-10-03), plus a started_r gate for the first active cycle.
+# exe_unit.vhd        generic ENABLE_DIV (2026-10-11; 0 removes the 16 dividers);
+#                     DMEM_0..7 IP -> behavioural dmem_bram; DONE / DMEM_WE / VREG_WE
+#                     gated by the per-stage DONE registers (EXE_MEM_/MEM_WB_DONEs).
+#                     The gating dates from 2026-04-14 (earlier project phase). The
+#                     DMEM_WE / VREG_WE parts are REQUIRED with the ">" count; DONE
+#                     changes cycle counts only (RESULTS.md "Task H").
+# multicycle_ops.vhd  div_gen_0/1 IP -> behavioural div_gen_behav (LATENCY 36).
+# mypack.vhd          DMEM_0..7 component declarations -> one dmem_bram component.
+# vector_top.v        vcsr_quant port 9 -> 2 bits (vector_top is not instantiated by
+#                     any ATEE-Lite top).
+# v_wrapper.v,
+# wrapper.vhd         pass the ENABLE_DIV generic down to exe_unit.
+# defines.v           three ATEE configuration-register address lines.
+# Unchanged and fetched as is: alu, cpu_inf, dmem_addr_xbar, lsu, stall_gen, vec_decoder,
+# vminmax, vrf_bank, xoutreg, timescale.v, verilogutils.vh.
+
+--- a/rtl/vector_unit/count_gen.vhd
++++ b/rtl/vector_unit/count_gen.vhd
+@@ -47,51 +47,34 @@
+ signal done_internal	:	STD_LOGIC;
+ signal expire			:	STD_LOGIC;
+ signal terminal_count	:	STD_LOGIC_VECTOR(6 downto 0);
++signal started_r		:	STD_LOGIC;  -- '1' once counter has begun (first active cycle has passed)
+ 
+ 
+ begin
+ -----------Terminal Count--------------
+ terminal_count <= std_logic_vector(resize((unsigned(vl) - 1),count_internal'LENGTH));
+ ---------------------------------------
+-------------Expire---------------------
+---expire <= '1' when (count_internal = terminal_count)	else	'0';
++-- done_gen: vl=N keeps done='0' for exactly N cycles (count = 0 .. N-1).
++-- terminal_count = vl-1 is the index of the LAST element, so done must only
++-- assert once count has gone past it (">"). The earlier ">=" dropped the last
++-- element for every vl>1 (vl=8 ran 7 elements); the started_r gate below only
++-- hid that for vl=1.
+ ---------------------------------------
+--- done_gen: process(illegal,terminal_count,start,reset,count_internal)
+--- begin
+-	-- if( (reset = '1') or (not(start) = '1') or (count_internal >= terminal_count) or(illegal = '1')) then
+-		-- done_internal	<=	'1';
+-	-- else
+-		-- done_internal	<=	'0';
+-	-- end if;
+--- end process done_gen;
+----------------------------------------
+-done_gen: process(illegal,terminal_count,start,reset,count_internal)
++done_gen: process(illegal,terminal_count,start,reset,count_internal,started_r)
+ begin
+ 	if ( (reset = '1') or (illegal = '1') ) then
+ 		done_internal <= '1';
+ 	elsif start = '0' then
+ 		done_internal <= '1';
+-	elsif count_internal >= terminal_count then
++	elsif started_r = '0' then
++		-- First cycle after start: always active regardless of count vs terminal
++		done_internal <= '0';
++	elsif count_internal > terminal_count then
+ 		done_internal <= '1';
+ 	else
+ 		done_internal <= '0';
+ 	end if;
+ end process done_gen;
+----------------------------------------
+--- done_internal_gen: process(clk,reset)
+--- begin
+-	-- if reset = '1' then
+-		-- done_internal <= '1';
+-	-- elsif rising_edge(clk) then
+-		-- if start = '0' then
+-			-- done_internal <= '1';
+-		-- elsif( (count_internal <= terminal_count-1)) then
+-			-- done_internal <= '0';
+-		-- else
+-			-- done_internal <= '1';
+-		-- end if;
+-	-- end if;
+--- end process done_internal_gen;
+ ---------------------------------------
+ -- 1 . 8-bit Synchronous Counter
+ ---------------------------------------
+@@ -99,12 +82,14 @@
+ begin
+     if(reset = '1') then
+         count_internal <= (others=>'0');
++        started_r      <= '0';
+ 	elsif(rising_edge(clk))	then
+ 	    if start = '0' then
+ 	       count_internal <= (others=>'0');
+-		--elsif(done_internal	= '0') then
++	       started_r      <= '0';
+ 		elsif ENABLE = '1' then
+ 			count_internal <= count_internal+1;
++			started_r      <= '1';
+ 		end if;
+ 	end if;
+ end process counter;
+--- a/rtl/vector_unit/exe_unit.vhd
++++ b/rtl/vector_unit/exe_unit.vhd
+@@ -20,7 +20,8 @@
+ 
+   
+ entity exe_unit is
+-	generic(VMEM_ADDR_WIDTH : integer :=14);
++	generic(VMEM_ADDR_WIDTH : integer :=14;
++	        ENABLE_DIV      : integer := 1);	-- 1: dividers present, 0: divider hardware removed
+     Port  ( 
+ 	    clk 		: in  STD_LOGIC;
+         reset 		: in  STD_LOGIC;	-- Asynchronous RESET
+@@ -229,16 +230,29 @@
+ 								
+ RD_EXE_count_en <= not (stall_q);
+ 								
+-DONE_int <= DONEs_internal(0) and DONEs_internal(1) and WB_FIN_DONEs(0) and WB_FIN_DONEs(1) and
+-			DONEs_internal(2) and DONEs_internal(3) and WB_FIN_DONEs(2) and WB_FIN_DONEs(3) and
+-			DONEs_internal(4) and DONEs_internal(5) and WB_FIN_DONEs(4) and WB_FIN_DONEs(5) and
+-			DONEs_internal(6) and DONEs_internal(7) and WB_FIN_DONEs(6) and WB_FIN_DONEs(7);
++DONE_int <= DONEs_internal(0) and DONEs_internal(1) and
++			RD_EXE_DONEs(0) and RD_EXE_DONEs(1) and
++			EXE_MEM_DONEs(0) and EXE_MEM_DONEs(1) and
++			MEM_WB_DONEs(0) and MEM_WB_DONEs(1) and
++			WB_FIN_DONEs(0) and WB_FIN_DONEs(1) and
++			DONEs_internal(2) and DONEs_internal(3) and
++			RD_EXE_DONEs(2) and RD_EXE_DONEs(3) and
++			EXE_MEM_DONEs(2) and EXE_MEM_DONEs(3) and
++			MEM_WB_DONEs(2) and MEM_WB_DONEs(3) and
++			WB_FIN_DONEs(2) and WB_FIN_DONEs(3) and
++			DONEs_internal(4) and DONEs_internal(5) and
++			RD_EXE_DONEs(4) and RD_EXE_DONEs(5) and
++			EXE_MEM_DONEs(4) and EXE_MEM_DONEs(5) and
++			MEM_WB_DONEs(4) and MEM_WB_DONEs(5) and
++			WB_FIN_DONEs(4) and WB_FIN_DONEs(5) and
++			DONEs_internal(6) and DONEs_internal(7) and
++			RD_EXE_DONEs(6) and RD_EXE_DONEs(7) and
++			EXE_MEM_DONEs(6) and EXE_MEM_DONEs(7) and
++			MEM_WB_DONEs(6) and MEM_WB_DONEs(7) and
++			WB_FIN_DONEs(6) and WB_FIN_DONEs(7);
+ 		
+ ------------------------------------------------------
+-DONE	 <= DONEs_internal(0) and DONEs_internal(1) and MEM_WB_DONEs(0) and MEM_WB_DONEs(1) and
+-			DONEs_internal(2) and DONEs_internal(3) and MEM_WB_DONEs(2) and MEM_WB_DONEs(3) and
+-			DONEs_internal(4) and DONEs_internal(5) and MEM_WB_DONEs(4) and MEM_WB_DONEs(5) and
+-			DONEs_internal(6) and DONEs_internal(7) and MEM_WB_DONEs(6) and MEM_WB_DONEs(7);
++DONE	 <= DONE_int;
+ ------------------------------------------------------
+ Instruction_bank: process(clk,reset)
+ begin
+@@ -316,6 +330,7 @@
+ ------------------------------------------------------
+ 
+ 
++GEN_DIV_ON: if ENABLE_DIV /= 0 generate
+ GEN_DIVIDERs:
+ 	for i in 0 to 7 generate
+ 	multicycle_ops_gen:  multicycle_ops generic map(32)
+@@ -332,6 +347,13 @@
+         start 		=>	Instructions(i).funct(3)		
+ 	);
+ 	end generate GEN_DIVIDERs;
++end generate GEN_DIV_ON;
++-- Divider hardware removed: never busy, result reads as zero.
++GEN_DIV_OFF: if ENABLE_DIV = 0 generate
++	DIV_BUSY  <= (others => '0');
++	divbyzero <= (others => '0');
++	div_op    <= (others => (others => '0'));
++end generate GEN_DIV_OFF;
+ ------------------------------------------------------
+ GEN_VRFS:
+ 	for i in 0 to 7 generate
+@@ -400,8 +422,8 @@
+ 	);
+ ------------------------------------------------------	
+ 	
+--- DMEMs
+-DMEM0: DMEM_0 port map(
++-- DMEMs (behavioral BRAM, replaces Xilinx IP)
++DMEM0: dmem_bram generic map(ADDR_WIDTH => VMEM_ADDR_WIDTH, DATA_WIDTH => 32) port map(
+     clka 	=> clk,
+     wea(0) 	=> DMEM_WE_VEC_CPU(0),
+     addra 	=> DMEM_ADDR_VEC_CPU(0),
+@@ -409,16 +431,15 @@
+     douta 	=> DMEM_DATA(0)
+ );
+  
+-DMEM1: DMEM_1 port map(
++DMEM1: dmem_bram generic map(ADDR_WIDTH => VMEM_ADDR_WIDTH, DATA_WIDTH => 32) port map(
+     clka 	=> clk,
+     wea(0) 	=> DMEM_WE_VEC_CPU(1),
+     addra 	=> DMEM_ADDR_VEC_CPU(1),
+     dina 	=> DMEM_DIN_VEC_CPU(1),
+     douta 	=> DMEM_DATA(1)
+-
+ );
+  
+-DMEM2: DMEM_2 port map(
++DMEM2: dmem_bram generic map(ADDR_WIDTH => VMEM_ADDR_WIDTH, DATA_WIDTH => 32) port map(
+     clka 	=> clk,
+     wea(0) 	=> DMEM_WE_VEC_CPU(2),
+     addra 	=> DMEM_ADDR_VEC_CPU(2),
+@@ -426,7 +447,7 @@
+     douta 	=> DMEM_DATA(2)
+ );
+ 
+-DMEM3: DMEM_3 port map(
++DMEM3: dmem_bram generic map(ADDR_WIDTH => VMEM_ADDR_WIDTH, DATA_WIDTH => 32) port map(
+     clka 	=> clk,
+     wea(0) 	=> DMEM_WE_VEC_CPU(3),
+     addra 	=> DMEM_ADDR_VEC_CPU(3),
+@@ -434,7 +455,7 @@
+     douta 	=> DMEM_DATA(3)
+ );
+ 
+-DMEM4: DMEM_4 port map(
++DMEM4: dmem_bram generic map(ADDR_WIDTH => VMEM_ADDR_WIDTH, DATA_WIDTH => 32) port map(
+     clka 	=> clk,
+     wea(0) 	=> DMEM_WE_VEC_CPU(4),
+     addra 	=> DMEM_ADDR_VEC_CPU(4),
+@@ -442,7 +463,7 @@
+     douta 	=> DMEM_DATA(4)
+ );
+ 
+-DMEM5: DMEM_5 port map(
++DMEM5: dmem_bram generic map(ADDR_WIDTH => VMEM_ADDR_WIDTH, DATA_WIDTH => 32) port map(
+     clka 	=> clk,
+     wea(0) 	=> DMEM_WE_VEC_CPU(5),
+     addra 	=> DMEM_ADDR_VEC_CPU(5),
+@@ -450,7 +471,7 @@
+     douta 	=> DMEM_DATA(5)
+ );
+ 
+-DMEM6: DMEM_6 port map(
++DMEM6: dmem_bram generic map(ADDR_WIDTH => VMEM_ADDR_WIDTH, DATA_WIDTH => 32) port map(
+     clka 	=> clk,
+     wea(0) 	=> DMEM_WE_VEC_CPU(6),
+     addra 	=> DMEM_ADDR_VEC_CPU(6),
+@@ -458,7 +479,7 @@
+     douta 	=> DMEM_DATA(6)
+ );
+ 
+-DMEM7: DMEM_7 port map(
++DMEM7: dmem_bram generic map(ADDR_WIDTH => VMEM_ADDR_WIDTH, DATA_WIDTH => 32) port map(
+     clka 	=> clk,
+     wea(0) 	=> DMEM_WE_VEC_CPU(7),
+     addra 	=> DMEM_ADDR_VEC_CPU(7),
+@@ -656,16 +677,16 @@
+ end process VECTOR_CPU_MUX;	
+ ------------------------------------------------------	
+ 
+-DMEM_WE_GEN: process(MEM_WB_DONEs, DONEs_internal, EXE_MEM_Instructions,MASK_VECTOR_DMEMWR)
++DMEM_WE_GEN: process(EXE_MEM_DONEs, EXE_MEM_Instructions, MASK_VECTOR_DMEMWR, EXE_MEM_counts)
+ begin
+ 	for i in 0 to 7 loop
+ 		if EXE_MEM_Instructions(i).MASK_EN ='1' then
+ 			DMEM_WE(i) <= EXE_MEM_Instructions(i).dmw and 
+-						((not(DONEs_internal(i))) OR (not (MEM_WB_DONEs(((i) mod 8))))) and
++						(not EXE_MEM_DONEs(i)) and
+ 						MASK_VECTOR_DMEMWR(to_integer(unsigned(EXE_MEM_counts(i))));
+ 		else
+ 		DMEM_WE(i) <= EXE_MEM_Instructions(i).dmw and 
+-					 ((not(DONEs_internal(i))) OR (not (MEM_WB_DONEs(((i) mod 8)))));
++					 (not EXE_MEM_DONEs(i));
+ 		end if;
+ 
+ 		DMEM_RE(i) <= EXE_MEM_Instructions(i).dmr ;
+@@ -728,7 +749,7 @@
+ --VREG_WRITE_DATA XBAR
+ -- Write Logic to Vector Destination Registers
+ -- 
+-vreg_write_xbar: process(MEM_WB_counts,MEM_WB_DATA,MEM_WB_Instructions,MASK_VECTOR_VREGWR,DONEs_internal,WB_FIN_DONEs)
++vreg_write_xbar: process(MEM_WB_counts,MEM_WB_DATA,MEM_WB_Instructions,MASK_VECTOR_VREGWR,MEM_WB_DONEs)
+ variable count_mem : integer range 0 to 7;
+ begin
+ 	count_mem := to_integer(unsigned(MEM_WB_counts(0))) mod 8;
+@@ -742,10 +763,10 @@
+ 			-------------------------------------------------------------------------------------------------
+ 				VREG_WE(i)  <= MEM_WB_Instructions(((8-i+count_mem) mod 8)).REG_WE and
+ 							  MASK_VECTOR_VREGWR(to_integer(unsigned(MEM_WB_counts(i)))) and 
+-							  ((not (DONEs_internal(((8-i+count_mem) mod 8)))) or (not (WB_FIN_DONEs(((8-i+count_mem) mod 8)))));
++							  (not MEM_WB_DONEs(((8-i+count_mem) mod 8)));
+ 			-------------------------------------------------------------------------------------------------
+ 		else								-- IF Vector Mask is Disabled
+-				VREG_WE(i)  <= MEM_WB_Instructions(((8-i+count_mem) mod 8)).REG_WE and ((not (DONEs_internal(((8-i+count_mem) mod 8)))) or (not (WB_FIN_DONEs(((8-i+count_mem) mod 8)))));	
++				VREG_WE(i)  <= MEM_WB_Instructions(((8-i+count_mem) mod 8)).REG_WE and (not MEM_WB_DONEs(((8-i+count_mem) mod 8)));	
+ 			-------------------------------------------------------------------------------------------------
+ 		end if;
+ 	end loop;
+--- a/rtl/vector_unit/multicycle_ops.vhd
++++ b/rtl/vector_unit/multicycle_ops.vhd
+@@ -39,7 +39,11 @@
+ end multicycle_ops;
+ 
+ architecture Behavioral of multicycle_ops is
+-COMPONENT div_gen_0
++COMPONENT div_gen_behav
++  GENERIC (
++    IS_SIGNED : BOOLEAN := true;
++    LATENCY   : INTEGER := 36
++  );
+   PORT (
+     aclk 					: IN STD_LOGIC;
+ 	aclken 					: IN STD_LOGIC;
+@@ -51,22 +55,6 @@
+     m_axis_dout_tuser 		: OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
+     m_axis_dout_tdata 		: OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
+   );
+-  
+-END COMPONENT;
+-
+-COMPONENT div_gen_1
+-  PORT (
+-    aclk 					: IN STD_LOGIC;
+-	aclken 					: IN STD_LOGIC;
+-    s_axis_divisor_tvalid 	: IN STD_LOGIC;
+-    s_axis_divisor_tdata 	: IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    s_axis_dividend_tvalid 	: IN STD_LOGIC;
+-    s_axis_dividend_tdata 	: IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    m_axis_dout_tvalid 		: OUT STD_LOGIC;
+-    m_axis_dout_tuser 		: OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
+-    m_axis_dout_tdata 		: OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
+-  );
+-  
+ END COMPONENT;
+ 
+ signal count_0 						: std_logic_vector(5 downto 0);
+@@ -100,7 +88,7 @@
+ signal divbyzero_1					: STD_LOGIC;
+ 
+ begin
+-signed_divider: div_gen_0 port map(
++signed_divider: div_gen_behav generic map(IS_SIGNED => true, LATENCY => 36) port map(
+ 	aclk 					=> 	clk 						,
+ 	aclken					=>	start_0						,
+ 	s_axis_divisor_tvalid 	=> 	s_axis_divisor_tvalid_s_0 	,
+@@ -112,7 +100,7 @@
+ 	m_axis_dout_tdata 		=> 	m_axis_dout_tdata_s_0 		
+ 	);
+ 
+-unsigned_divider: div_gen_1 port map(
++unsigned_divider: div_gen_behav generic map(IS_SIGNED => false, LATENCY => 36) port map(
+ 	aclk 					=> 	clk 						,
+ 	aclken					=>	start_1						,
+ 	s_axis_divisor_tvalid 	=> 	s_axis_divisor_tvalid_s_1 	,
+--- a/rtl/vector_unit/mypack.vhd
++++ b/rtl/vector_unit/mypack.vhd
+@@ -224,85 +224,18 @@
+ end component;
+ 
+ -----------------------------------------------
+--- Memory Components
+-COMPONENT DMEM_0
++-- Memory Components (behavioral BRAM, replaces Xilinx IP)
++COMPONENT dmem_bram
++  GENERIC (
++    ADDR_WIDTH : INTEGER := 14;
++    DATA_WIDTH : INTEGER := 32
++  );
+   PORT (
+     clka : IN STD_LOGIC;
+     wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+-    addra : IN STD_LOGIC_VECTOR(VMEM_ADDR_WIDTH-1  DOWNTO 0);
+-    dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+-  );
+-END COMPONENT;
+-----------------------------------------------
+-COMPONENT DMEM_1
+-  PORT (
+-    clka : IN STD_LOGIC;
+-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+-    addra : IN STD_LOGIC_VECTOR(VMEM_ADDR_WIDTH-1  DOWNTO 0);
+-    dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+-  );
+-END COMPONENT;
+-
+-----------------------------------------------
+-COMPONENT DMEM_2
+-  PORT (
+-    clka : IN STD_LOGIC;
+-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+-    addra : IN STD_LOGIC_VECTOR(VMEM_ADDR_WIDTH-1  DOWNTO 0);
+-    dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+-  );
+-END COMPONENT;
+-----------------------------------------------
+-COMPONENT DMEM_3
+-  PORT (
+-    clka : IN STD_LOGIC;
+-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+-    addra : IN STD_LOGIC_VECTOR(VMEM_ADDR_WIDTH-1  DOWNTO 0);
+-    dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+-  );
+-END COMPONENT;
+-----------------------------------------------
+-COMPONENT DMEM_4
+-  PORT (
+-    clka : IN STD_LOGIC;
+-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+-    addra : IN STD_LOGIC_VECTOR(VMEM_ADDR_WIDTH-1  DOWNTO 0);
+-    dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+-  );
+-END COMPONENT;
+-----------------------------------------------
+-COMPONENT DMEM_5
+-  PORT (
+-    clka : IN STD_LOGIC;
+-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+-    addra : IN STD_LOGIC_VECTOR(VMEM_ADDR_WIDTH-1  DOWNTO 0);
+-    dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+-  );
+-END COMPONENT;
+-----------------------------------------------
+-COMPONENT DMEM_6
+-  PORT (
+-    clka : IN STD_LOGIC;
+-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+-    addra : IN STD_LOGIC_VECTOR(VMEM_ADDR_WIDTH-1  DOWNTO 0);
+-    dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
+-  );
+-END COMPONENT;
+-----------------------------------------------
+-COMPONENT DMEM_7
+-  PORT (
+-    clka : IN STD_LOGIC;
+-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+-    addra : IN STD_LOGIC_VECTOR(VMEM_ADDR_WIDTH-1  DOWNTO 0);
+-    dina : IN STD_LOGIC_VECTOR(31 DOWNTO 0);
+-    douta : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
++    addra : IN STD_LOGIC_VECTOR(ADDR_WIDTH-1 DOWNTO 0);
++    dina : IN STD_LOGIC_VECTOR(DATA_WIDTH-1 DOWNTO 0);
++    douta : OUT STD_LOGIC_VECTOR(DATA_WIDTH-1 DOWNTO 0)
+   );
+ END COMPONENT;
+ 
+--- a/rtl/vector_unit/vector_top.v
++++ b/rtl/vector_unit/vector_top.v
+@@ -32,7 +32,7 @@
+     input [31:0] 		rs1_data,
+     input [31:0] 		rs2_data,
+     input [8:0] 		vl,
+-    input [8:0] 		vcsr_quant,
++    input [1:0] 		vcsr_quant,
+     input 	            freeze_vector_ops,
+     input 	            Data_Cache__Stall,
+ 	// Processor interface Related//
+--- a/rtl/vector_unit/v_wrapper.v
++++ b/rtl/vector_unit/v_wrapper.v
+@@ -20,7 +20,9 @@
+ //////////////////////////////////////////////////////////////////////////////////
+ 
+ 
+-module v_wrapper(
++module v_wrapper #(
++parameter ENABLE_DIV = 1                // 1: dividers present, 0: divider hardware removed
++) (
+ input 			clk 			,
+ input 			reset 			,
+ input [8:0]		vl				,	// Vector LENGTH Register
+@@ -60,7 +62,7 @@
+ );
+ 
+ 
+-wrapper wrapper_vhd(
++wrapper #(.ENABLE_DIV(ENABLE_DIV)) wrapper_vhd(
+ 	.clk 			(clk 		),
+ 	.reset 			(reset 		),
+ 	.vl				(vl			),
+--- a/rtl/vector_unit/wrapper.vhd
++++ b/rtl/vector_unit/wrapper.vhd
+@@ -19,6 +19,7 @@
+ 
+ 
+ entity wrapper is
++generic(ENABLE_DIV : integer := 1);	-- 1: dividers present, 0: divider hardware removed
+ port(
+ 	clk 			: in  STD_LOGIC;
+ 	reset 			: in  STD_LOGIC;
+@@ -63,7 +64,8 @@
+ 
+ architecture Behavioral of wrapper is
+ component exe_unit is
+-	generic(VMEM_ADDR_WIDTH : integer :=14);
++	generic(VMEM_ADDR_WIDTH : integer :=14;
++	        ENABLE_DIV      : integer := 1);
+     Port  ( 
+ 	    clk 		: in  STD_LOGIC;
+         reset 		: in  STD_LOGIC;	-- Asynchronous RESET
+@@ -89,7 +91,7 @@
+ 
+ begin
+ 
+-VECTOR_EXE_UNIT_PIPE: exe_unit generic map(VMEM_ADDR_WIDTH=>14)
++VECTOR_EXE_UNIT_PIPE: exe_unit generic map(VMEM_ADDR_WIDTH=>14, ENABLE_DIV=>ENABLE_DIV)
+ 	port map(
+ 	clk 					=> clk 				,		
+ 	reset 		    		=> reset 			,	
+--- a/rtl/defines.v
++++ b/rtl/defines.v
+@@ -47,6 +47,9 @@
+ `define VEC_REG_END_ADDR 32'h0018_03FC
+ `define VEC_MEM_START_ADDR 32'h0010_0000
+ `define VEC_MEM_END_ADDR 32'h0017_FFFC
++//--- ATEE (Autonomous Tensor Execution Engine) Config Registers ---
++`define ATEE_CONFIG_START_ADDR 32'h0020_0000
++`define ATEE_CONFIG_END_ADDR   32'h0020_00FF
+ //--------------------------------
+ `define op32_fp_loadop 7'b0000111
+ `define op32_fp_storeop 7'b0100111

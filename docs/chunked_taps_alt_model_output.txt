@@ -1,0 +1,31 @@
+﻿check vl=8  conv8_3            slot rule    3403  recorded    3403  EQUAL
+check vl=8  CONV2D 3x3 64x64   slot rule  353739  recorded  353739  EQUAL
+check vl=8  MNIST conv1 ReLU   slot rule   66339  recorded   66339  EQUAL
+check vl=16 conv8_3            slot rule    2599  recorded    2599  EQUAL
+check vl=16 CONV2D 3x3 64x64   slot rule  269159  recorded  269159  EQUAL
+check vl=16 MNIST conv1 ReLU   slot rule   49427  recorded   49427  EQUAL
+check convoy_chunk_tb vl=8  run A slot rule 106 measured 106; run B slot rule 113 measured 113
+check convoy_chunk_tb vl=16 run A slot rule 170 measured 170; run B slot rule 177 measured 177
+
+Section 5 of the design note, option B, old constants vs slot rule:
+| Workload | vl=8 old | vl=8 slot rule | vl=16 old | vl=16 slot rule |
+|---|---|---|---|---|
+| CONV2D 5x5 8x8, 32 filters | 9,019 | 9,083 | 7,099 | 7,063 |
+| CONV2D 5x5 16x16, 32 filters | 77,627 | 78,203 | 60,859 | 60,567 |
+| CONV2D 5x5 32x32, 32 filters | 420,667 | 423,803 | 329,659 | 328,087 |
+| CONV2D 5x5 64x64, 32 filters | 1,930,043 | 1,944,443 | 1,512,379 | 1,505,175 |
+| CONV2D 5x5 8x8, 16 filters | 4,519 | 4,551 | 3,559 | 3,541 |
+| CONV2D 5x5 16x16, 16 filters | 38,823 | 39,111 | 30,439 | 30,293 |
+| CONV2D 5x5 32x32, 16 filters | 210,343 | 211,911 | 164,839 | 164,053 |
+| CONV2D 5x5 64x64, 16 filters | 965,031 | 972,231 | 756,199 | 752,597 |
+| MATMUL 8x8 as 1x1 conv | 406 | 406 | 639 | 622 |
+| MATMUL 16x16 as 1x1 conv | 3,007 | 3,039 | 2,379 | 2,345 |
+| MATMUL 32x32 as 1x1 conv | 22,047 | 22,047 | 16,907 | 16,969 |
+| MATMUL 64x64 as 1x1 conv | 173,635 | 174,147 | 139,251 | 134,379 |
+| MLP layer 1: 784 -> 32, bias, ReLU | 28,727 | 28,731 | 22,779 | 22,899 |
+| MLP layer 2: 32 -> 16, bias, ReLU | 625 | 625 | 499 | 500 |
+| MLP layer 3: 16 -> 10, bias | 339 | 341 | 279 | 276 |
+| cnn_demo layer 1 (26x26 conv), bias, ReLU | 67,691 | 67,691 | 49,427 | 50,103 |
+| cnn_demo layer 2 (11x11 conv), bias, ReLU | 361,935 | 361,935 | 273,705 | 277,577 |
+| cnn_demo layer 2, 10x10 the pooling reads | 299,523 | 299,523 | 226,539 | 229,739 |
+| cnn_demo FC 800 -> 10, bias, ReLU | 14,653 | 14,653 | 11,592 | 11,678 |

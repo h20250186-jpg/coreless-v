@@ -1,0 +1,29 @@
+﻿Slot rule: convoy = last real slot + 18 cycles (vl = 16), chunks of 9 taps
+
+Schedule B (as built in G), CONVOY cycles only (fixed per-layer overheads not included):
+  layer 1 (conv 3x3, 16 filters, bias, ReLU, 2x2 pool)
+    P=676 pixels, T=9 taps, 1 chunks, 1 OC group(s)
+    preload    convoys       3  cycles       60
+    pixel      convoys    2028  cycles    47996
+    replicate  convoys     507  cycles    11323
+    total 59379   (IISc measured 56052, ratio 1.059)
+  layer 2 (conv 3x3x16, 32 filters, bias, ReLU, 2x2 pool)
+    P=100 pixels, T=144 taps, 16 chunks, 2 OC group(s)
+    preload    convoys      96  cycles     1920
+    pixel      convoys    9600  cycles   227200
+    replicate  convoys     150  cycles     3350
+    total 232470   (IISc measured 175674, ratio 1.323)
+  layer 3 (FC 800 -> 10, padded to 16, bias, ReLU)
+    P=1 pixels, T=800 taps, 89 chunks, 1 OC group(s)
+    preload    convoys     267  cycles     5339
+    pixel      convoys     267  cycles     6319
+    replicate  convoys       0  cycles        0
+    total 11658   (IISc measured 9883, ratio 1.180)
+  all three layers, convoys only: 303507 (IISc 241,689 incl. 80 overhead)
+
+Schedule F (scalar operand, PROJECTION, untested assumptions in the design note):
+  layer 1 (conv 3x3, 16 filters, bias, ReLU, 2x2 pool): {'preload': 60, 'window': 24843} -> 24903 (IISc 56052, ratio 0.444)
+  layer 2 (conv 3x3x16, 32 filters, bias, ReLU, 2x2 pool): {'preload': 1920, 'window': 116850} -> 118770 (IISc 175674, ratio 0.676)
+  layer 3 (FC 800 -> 10, padded to 16, bias, ReLU): {'stream': 5040} -> 5040 (IISc 9883, ratio 0.510)
+  + DMEM -> IBUF copies between layers, 1 word per cycle: 2704 + 800 = 3504 (estimate)
+  all three layers: 148713 convoy + 3504 copy = 152217 (IISc 241,689)
