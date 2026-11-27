@@ -161,18 +161,19 @@ Run one implementation at a time.
 | Control logic and LUT decomposition vs IISc | "Main design …", item 1 | the SC run above and IISc Run 3 below; the subtraction is shown in RESULTS.md |
 | Power, netlist-SAIF, conv8_3 | item 2 | `ps scripts\v7_power_atee_sc.ps1 -Workload conv8` |
 | Power, netlist-SAIF, cnn_demo image 0, per layer | item 2 | see note 1 below |
-| Power, RTL-SAIF, SC conv8_3 / cnn_demo | item 2 | `ps scripts\v7_rtlsaif_atee_sc.ps1 -Workload conv8`; for cnn_demo see note 1 (`-Design sc_rtl`) |
-| Power, RTL-SAIF, IISc cnn_demo inference | item 2 | see note 1 (`scripts\v7_rtlsaif_iisc_cnn.ps1`, then `-Design iisc_rtl`) |
+
+Power is measured for Coreless-V only. A power comparison with I2SRV32-V is
+future work, as in the paper.
 
 **Note 1, cnn_demo SAIF windows (152k and 242k cycles).** These use
-condition-triggered windows. First build the snapshot with the per-workload
-script: `ps scripts\v7_power_atee_sc.ps1 -Workload cnn`,
-`ps scripts\v7_rtlsaif_atee_sc.ps1 -Workload cnn` or
-`ps scripts\v7_rtlsaif_iisc_cnn.ps1`. Stop it once its xsim run has started;
+condition-triggered windows. First build the snapshot with
+`ps scripts\v7_power_atee_sc.ps1 -Workload cnn` (for the RTL-SAIF runs under
+"Additional measurements" below: `ps scripts\v7_rtlsaif_atee_sc.ps1 -Workload cnn`
+or `ps scripts\v7_rtlsaif_iisc_cnn.ps1`). Stop it once its xsim run has started;
 its stepped window takes hours. Then run
-`ps scripts\v7_power_cnn_cond.ps1 -Design sc_netlist_seg`, `-Design sc_rtl` or
-`-Design iisc_rtl`. On conv8_3 the two window methods were checked to give
-identical power (RESULTS.md, item 2).
+`ps scripts\v7_power_cnn_cond.ps1 -Design sc_netlist_seg` (RTL-SAIF runs:
+`-Design sc_rtl` or `-Design iisc_rtl`). On conv8_3 the two window methods were
+checked to give identical power (RESULTS.md, item 2).
 
 ### I2SRV32-V, their design and programs (comparison baseline)
 
@@ -180,13 +181,11 @@ identical power (RESULTS.md, item 2).
 |---|---|---|
 | conv8_3 baseline, conv2d() cycles, err_count | "1c. Comparison with I2SRV32-V" | `ps scripts\run_iisc_baseline.ps1` |
 | CONV2D 3x3 at 8 / 16 / 32 / 64 | "CONV2D 3x3 at image sizes 8 / 16 / 32 / 64" | `ps scripts\run_iisc_conv_sizes.ps1 -Size 8` (16, 32, 64) |
-| Every paper benchmark row (SAXPY, perceptron, MATMUL, CONV 5x5, cnn_demo) | "Paper benchmark rows, measured on their design" | `ps scripts\run_iisc_bench.ps1 -Program <name>`; batches: `ps scripts\run_iisc_bench_batch.ps1 -List "..."`; summary `python -I scripts\iisc_bench_summary.py` |
+| Their benchmark programs (CONV2D 5x5, MATMUL, cnn_demo, SAXPY, perceptron) | "Paper benchmark rows, measured on their design" | `ps scripts\run_iisc_bench.ps1 -Program <name>`; batches: `ps scripts\run_iisc_bench_batch.ps1 -List "..."`; summary `python -I scripts\iisc_bench_summary.py` |
 | cnn_demo on 100 images | same, "cnn_demo (Table IX CNN)" | `ps scripts\run_iisc_bench.ps1 -Program cnn -Image 0`, then `ps scripts\run_iisc_cnn_images.ps1 -From 1 -To 99` |
 | DSP-macro stand-in sensitivity (TLB) | "Data-TLB stand-in probe"; "A.1" | `ps scripts\run_iisc_baseline_dtlb.ps1 -StandIn zero` (and `assumed`); `ps scripts\run_iisc_cnn_probe.ps1 -StandIn zero` (and `assumed`) |
-| Virtex-7 Run 3 (their constraints as written) | "Virtex-7 XC7VX485T, Vivado 2026.1" | `vivado -mode batch -source scripts/v7_impl_iisc.tcl`; analysis `scripts/v7_iisc_analyze.tcl` |
-| 2026.1 reproduces the 2019.1 baseline | "Gate test re-run (2026-11-12/13)" | `ps scripts\run_iisc_conv8_3_2026.ps1 -MainImage xmem` |
-| Paper-configuration experiment (128 KB) | "Paper-configuration experiment" | `scripts/v7_impl_iisc_papercfg.tcl`, `scripts/v7_impl_atee_papercfg.tcl` |
-| No-exceptions reference run | "E: LUT decomposition on Virtex-7" | `scripts/v7_impl_iisc_noexc.tcl` |
+| Virtex-7 Run 3, area (their constraints as written) | "Virtex-7 XC7VX485T, Vivado 2026.1" | `vivado -mode batch -source scripts/v7_impl_iisc.tcl`; analysis `scripts/v7_iisc_analyze.tcl` |
+| Vivado 2026.1 gives the same conv8_3 cycles as 2019.1 | "Gate test re-run (2026-11-12/13)" | `ps scripts\run_iisc_conv8_3_2026.ps1 -MainImage xmem` |
 
 ### Development designs
 
@@ -202,22 +201,23 @@ identical power (RESULTS.md, item 2).
 | Artix-7 stand-in synthesis and power (2019.1) | sections 2–5, "Out-of-context synthesis" | `scripts/synth_atee.tcl`, `synth_atee_nodiv.tcl`, `synth_atee_ooc.tcl`, `ps scripts\run_power_saif.ps1` |
 | Chunked-tap and CNN schedule models | "C", "F" | `python -I scripts\chunked_taps_model.py`, `chunked_taps_alt_model.py`, `cnn_schedule_model.py` |
 
-## Fault-reproduction testbenches (inherited core)
+## Issue-rule tests (vector unit alone)
 
-Each of these drives the vector unit (`v_wrapper`) alone and reproduces a
-documented failure next to a passing control. RESULTS.md sections 6 and A.2
-describe them.
+The controllers follow a small set of issue rules for the vector unit
+(RESULTS.md sections 6 and A.2). Each test below drives the vector unit
+(`v_wrapper`) alone and runs a convoy shape that a rule excludes next to one
+that follows it.
 
-| Behaviour | Testbench | Command |
+| Issue rule | Testbench | Command |
 |---|---|---|
-| Load-use stall: stale operand, half-rate convoy | `testbench/convoy_tb.v` (V1/V1b) | `ps scripts\run_convoy.ps1` |
-| Broadcast-load bank collision | `testbench/convoy_tb.v` (V3a–d) | same |
-| Store in slot 7 spills into unclaimed banks | `testbench/convoy_multi_tb.v` (L3M3S) | `ps scripts\run_convoy_multi.ps1` |
-| Slot-0 counter routing (one-slot-per-element is not 8 lanes) | `testbench/lane_load_tb.v` (EXP B, C) | `ps scripts\run_lane_load.ps1` |
-| Slot reuse without clear (T1, T3, T4 fail; T2, T5, T6 pass) | `testbench/convoy_reuse_tb.v` | `ps scripts\run_convoy_reuse.ps1` |
-| vl > 8: an empty slot breaks its bank | `testbench/convoy_vl16_tb.v` | `ps scripts\run_convoy_vl16.ps1` |
+| No load in the slot directly ahead of its reader | `testbench/convoy_tb.v` (V1/V1b) | `ps scripts\run_convoy.ps1` |
+| No broadcast (stride-0) loads | `testbench/convoy_tb.v` (V3a–d) | same |
+| No store in slot 7 | `testbench/convoy_multi_tb.v` (L3M3S) | `ps scripts\run_convoy_multi.ps1` |
+| Slot j issued exactly j cycles after slot 0 (the slots are not 8 lanes) | `testbench/lane_load_tb.v` (EXP B, C) | `ps scripts\run_lane_load.ps1` |
+| Slot reuse without a clear (T1–T6) | `testbench/convoy_reuse_tb.v` | `ps scripts\run_convoy_reuse.ps1` |
+| No empty slot at vl > 8 | `testbench/convoy_vl16_tb.v` | `ps scripts\run_convoy_vl16.ps1` |
 | Chunk boundary, with negative control | `testbench/convoy_chunk_tb.v` | `ps scripts\run_convoy_chunk.ps1` |
-| vl not a multiple of 8, on THEIR design | `scripts/iisc_vlhazard.py` | `ps scripts\run_iisc_vlhazard.ps1` |
+| vl a multiple of 8, on THEIR design | `scripts/iisc_vlhazard.py` | `ps scripts\run_iisc_vlhazard.ps1` |
 
 The same testbenches, and the main design, can be run on THEIR unmodified
 vector-unit files or on any subset of our changes (RESULTS.md "Task H"):
@@ -227,6 +227,17 @@ vector-unit files or on any subset of our changes (RESULTS.md "Task H"):
 their files from the repository zip (`external/i2srv32.zip`, the
 `--zip` given to `tools/setup_upstream.py`) and their IP simulation models from
 `external/ip_extracted/` (produced as for `scripts/run_iisc_baseline.ps1`).
+
+## Additional measurements
+
+Additional measurements of the I2SRV32-V baseline are recorded in RESULTS.md.
+They are not used in the paper. The commands for them:
+
+| Measurement | RESULTS.md section | Command |
+|---|---|---|
+| Power by RTL-SAIF, SC conv8_3 / cnn_demo and IISc cnn_demo inference | "Main design …", item 2 | `ps scripts\v7_rtlsaif_atee_sc.ps1 -Workload conv8`; cnn_demo: note 1 (`-Design sc_rtl`, `-Design iisc_rtl`) |
+| Paper-configuration experiment (128 KB) | "Paper-configuration experiment" | `scripts/v7_impl_iisc_papercfg.tcl`, `scripts/v7_impl_atee_papercfg.tcl` |
+| No-exceptions reference run | "E: LUT decomposition on Virtex-7" | `scripts/v7_impl_iisc_noexc.tcl` |
 
 ## Attribution
 

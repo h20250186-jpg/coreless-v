@@ -3,6 +3,7 @@
 # Regenerated 2026-11-24: hashes and sizes recomputed for every entry; 36 entries changed (the 2026-11-23 Coreless-V rename of prose and comments), paths and origins unchanged.
 # Regenerated 2026-11-24 (public-release preparation: Apache-2.0 LICENSE, tool paths moved to tools/paths.example.ps1, local paths replaced by placeholders, .gitignore): 52 entries changed, 3 added, 0 removed.
 # Regenerated 2026-11-24 (.gitattributes "* -text" added): 0 entries changed, 1 added, 0 removed.
+# Regenerated 2026-11-27 (README.md and patches/README.md brought in line with the clock and power revision of the papers): 2 entries changed, 0 added, 0 removed.
 
 705fd4d6451a31d36b3df7de96f83f30ac976c9b4a6d1e51671d8e2f33e2d0da         8  .gitattributes  [ours]
 aef4e6cb9991f9e42120277d6d85c268fa83cf889233820e0351514797c6b49d      1125  .gitignore  [ours]
@@ -49,8 +50,8 @@ b39b5139b44b70b3a522bd3737477e65e4d9494c4dc204db8f80e079155c5432       826  exte
 7f4567e11ed60675717b1c0fc7923e71549d8c4b01d846a65eed122d28fc6fff      3013  patches/03_atee_paper_cfg_128KB.patch  [ours; contains I2SRV32-V excerpts (diff context)]
 780d57c8f3bb169534931a222ebed34ea4ca47d65dc9ccfce55b9a2fc70b6db0      2962  patches/04_dsp48_macro_standins.patch  [ours; contains I2SRV32-V excerpts (diff context)]
 0ff1cfb1d7ef10bed5823705f80fba97961d39ed1a1f302c7cbc4b6411d01c12    295858  patches/05_iisc_constraints_noexc.patch  [ours; contains I2SRV32-V excerpts (diff context)]
-0dc7af6ed220ed373a674799a1cca75408f1ee0a5db081df4114c060754bb90a      3707  patches/README.md  [ours]
-b76816f5a1be67b87262b6ea908bc246d6b0a228ce91472d10c3d64ff4b6c1a0     16427  README.md  [ours]
+9e4034b381ba6967a01515459428951beffbfdff995fdb7a2c628650d6fd139e      3659  patches/README.md  [ours]
+8fc46b83ee71265e60abb671ef7c1a4aefb74225bed26ce711ce967b2964056d     16775  README.md  [ours]
 2f42f38d2e5017551842f8d734362236f7f6bbc3ae34a1dde7481ad76918a9a8    274974  RESULTS.md  [ours]
 624d749fab513f94770853f84810222b39efae93361b3b8794ac63f7be869192     12781  rtl/vector_unit/atee_top.v  [ours]
 475697979c7058509a6e0ca8da15234c4ffbf5fdf73dd2f31fea5570e0e43805     10031  rtl/vector_unit/atee_top_cnn.v  [ours]
